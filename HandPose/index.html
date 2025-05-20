@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Detecção de Mão - HandPose</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        video,
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="status">Carregando modelo...</div>
+    <video id="video" autoplay muted playsinline width="640" height="480"></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <!-- TensorFlow.js Core + Backends + Converter -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.13.0/dist/tf-core.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.13.0/dist/tf-backend-webgl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.13.0/dist/tf-converter.min.js"></script>
+
+    <!-- Modelo HandPose -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose@0.0.7"></script>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+
+        const fingerLookup = {
+            thumb: [0, 1, 2, 3, 4],
+            indexFinger: [0, 5, 6, 7, 8],
+            middleFinger: [0, 9, 10, 11, 12],
+            ringFinger: [0, 13, 14, 15, 16],
+            pinky: [0, 17, 18, 19, 20]
+        };
+
+        function drawHand(keypoints) {
+            ctx.fillStyle = '#00FF00';
+            ctx.strokeStyle = '#00FF00';
+            ctx.lineWidth = 2;
+
+            for (const finger in fingerLookup) {
+                const points = fingerLookup[finger].map(i => keypoints[i]);
+                ctx.beginPath();
+                ctx.moveTo(points[0][0], points[0][1]);
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i][0], points[i][1]);
+                }
+                ctx.stroke();
+            }
+
+            keypoints.forEach(([x, y]) => {
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+
+        async function setupCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user' },
+                audio: false
+            });
+            video.srcObject = stream;
+            return new Promise(resolve => {
+                video.onloadedmetadata = () => resolve(video);
+            });
+        }
+
+        function countOpenFingers(landmarks) {
+            // Indices dos dedos com base na estrutura do modelo HandPose
+            const thumb = landmarks.slice(0, 5);
+            const index = landmarks.slice(5, 9);
+            const middle = landmarks.slice(9, 13);
+            const ring = landmarks.slice(13, 17);
+            const pinky = landmarks.slice(17, 21);
+
+            let openFingers = 0;
+
+            // Função para verificar se o dedo está aberto
+            function isFingerOpen(fingerLandmarks) {
+                const [tip, ...rest] = fingerLandmarks;
+                return tip[1] < rest[0][1];  // Verifica se a ponta do dedo está acima da base
+            }
+
+            // Contar dedos abertos
+            if (isFingerOpen(thumb)) openFingers++;
+            if (isFingerOpen(index)) openFingers++;
+            if (isFingerOpen(middle)) openFingers++;
+            if (isFingerOpen(ring)) openFingers++;
+            if (isFingerOpen(pinky)) openFingers++;
+
+            console.log(`Dedos abertos: ${openFingers}`);
+            return openFingers;
+        }
+
+        async function main() {
+            await setupCamera();
+            await video.play();
+
+            const model = await handpose.load();
+            statusEl.textContent = 'Modelo carregado. Mova a mão na frente da câmera.';
+
+            async function detectHands() {
+                const predictions = await model.estimateHands(video);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                if (predictions.length > 0) {
+                    predictions.forEach(hand => drawHand(hand.landmarks));
+                    statusEl.textContent = `Detectada(s) ${predictions.length} mão(s)`;
+                } else {
+                    statusEl.textContent = 'Nenhuma mão detectada.';
+                }
+
+                // Desenho e contagem de mãos
+                if (predictions.length > 0) {  // Substituindo predictionsHands por predictions
+                    predictions.forEach(prediction => {
+                        drawHand(prediction.landmarks);
+                        countOpenFingers(prediction.landmarks);
+                    });
+                }
+
+                requestAnimationFrame(detectHands);
+            }
+
+            detectHands();
+        }
+
+        // ⚠️ Correto: aguarde backend e inicialização completa
+        async function init() {
+            await tf.setBackend('webgl');
+            await tf.ready();
+            console.log('Backend WebGL pronto');
+            main();
+        }
+
+        init();
+    </script>
+
+</body>
+
+</html>

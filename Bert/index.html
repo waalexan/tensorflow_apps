@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>QA com BERT (Transformers.js)</title>
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.4.1';
+
+    let qa;
+
+    async function setup() {
+      document.getElementById("output").innerText = "Carregando modelo...";
+      qa = await pipeline('question-answering');
+      document.getElementById("output").innerText = "Modelo carregado!";
+    }
+
+    async function responder() {
+      const question = document.getElementById("question").value;
+      const context = document.getElementById("context").value;
+
+      document.getElementById("output").innerText = "Respondendo...";
+
+      const result = await qa({
+        question: question,
+        context: context,
+      });
+
+      document.getElementById("output").innerText = `Resposta: ${result.answer}`;
+    }
+
+    setup();
+    window.responder = responder;
+  </script>
+</head>
+<body>
+  <h1>Respostas com BERT no Navegador</h1>
+
+  <label for="context">Texto:</label><br>
+  <textarea id="context" rows="6" cols="80">
+    O BERT é um modelo de linguagem desenvolvido pelo Google que revolucionou o processamento de linguagem natural. Ele é treinado em grandes volumes de texto e entende o contexto de uma palavra observando suas vizinhas.
+  </textarea><br><br>
+
+  <label for="question">Pergunta:</label><br>
+  <input id="question" type="text" size="80" placeholder="Ex: Quem desenvolveu o BERT?"><br><br>
+
+  <button onclick="responder()">Responder</button>
+
+  <p id="output">Carregando...</p>
+</body>
+</html>

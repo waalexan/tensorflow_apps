@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Segmentação Semântica com DeepLab (TensorFlow.js)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #canvas {
+      margin-top: 20px;
+      max-width: 100%;
+    }
+    #status {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Segmentação Semântica com DeepLab</h1>
+
+  <input type="file" id="imageUpload" accept="image/*" />
+  <br />
+  <canvas id="canvas" width="513" height="513"></canvas>
+  <div id="status">Carregando modelo...</div>
+
+  <!-- TensorFlow.js e DeepLab -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab"></script>
+
+  <script>
+    const imageUpload = document.getElementById('imageUpload');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const status = document.getElementById('status');
+    let model;
+
+    // Carregar modelo DeepLab (mobilenetv2, mais leve e rápido)
+    async function loadModel() {
+      model = await deeplab.load({ base: 'mobilenetv2' });
+      status.textContent = 'Modelo carregado. Escolha uma imagem para segmentar.';
+    }
+
+    // Gerar imagem da segmentação
+    async function segmentImage(image) {
+      status.textContent = 'Segmentando...';
+      const segmentation = await model.segment(image);
+
+      const { legend, height, width, segmentationMap } = segmentation;
+      const coloredPartImage = new ImageData(width, height);
+
+      // Colorir os pixels de acordo com a legenda
+      for (let i = 0; i < height * width; i++) {
+        const label = segmentationMap[i];
+        const color = legend[label] || [0, 0, 0];
+
+        coloredPartImage.data[i * 4] = color[0];     // R
+        coloredPartImage.data[i * 4 + 1] = color[1]; // G
+        coloredPartImage.data[i * 4 + 2] = color[2]; // B
+        coloredPartImage.data[i * 4 + 3] = 127;      // A (transparência)
+      }
+
+      // Redimensiona e desenha imagem original
+      ctx.drawImage(image, 0, 0, width, height);
+
+      // Sobrepõe segmentação semântica
+      ctx.putImageData(coloredPartImage, 0, 0);
+
+      status.textContent = 'Segmentação concluída.';
+    }
+
+    // Quando o usuário envia uma imagem
+    imageUpload.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target.result;
+      };
+
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        segmentImage(img);
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    loadModel();
+  </script>
+</body>
+</html>

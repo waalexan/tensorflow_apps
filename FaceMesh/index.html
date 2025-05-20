@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Detecção Facial - FaceMesh (TensorFlow.js)</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    video, canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #status {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status">Carregando modelo...</div>
+  <video id="video" autoplay muted playsinline width="640" height="480"></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+
+  <!-- Usando a versão combinada do TFJS que inclui backends -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0/dist/tf.min.js"></script>
+  <!-- Modelo FaceMesh -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.0/dist/face-landmarks-detection.js"></script>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+
+    // Função para desenhar os pontos do rosto
+    function drawFaceMesh(landmarks) {
+      ctx.fillStyle = '#00FF00';
+      ctx.strokeStyle = '#00FF00';
+      ctx.lineWidth = 2;
+
+      // Desenhar os pontos do rosto
+      landmarks.forEach(point => {
+        ctx.beginPath();
+        ctx.arc(point[0], point[1], 1, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    }
+
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: 640, height: 480 },
+          audio: false
+        });
+        video.srcObject = stream;
+        return new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            video.width = video.videoWidth;
+            video.height = video.videoHeight;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            resolve(video);
+          };
+        });
+      } catch (err) {
+        statusEl.textContent = 'Erro ao acessar a câmera: ' + err.message;
+        throw err;
+      }
+    }
+
+    async function main() {
+      try {
+        statusEl.textContent = 'Inicializando...';
+        
+        // Primeiro inicializamos o TF.js
+        await tf.setBackend('webgl');
+        await tf.ready();
+        console.log('Backend:', tf.getBackend());
+        
+        // Carregamos o modelo
+        const model = await faceLandmarksDetection.load(
+          faceLandmarksDetection.SupportedPackages.mediapipeFacemesh,
+          { maxFaces: 1 }
+        );
+        
+        // Configuramos a câmera
+        await setupCamera();
+        await video.play();
+        
+        statusEl.textContent = 'Modelo carregado. Mova o rosto na frente da câmera.';
+
+        async function detectFace() {
+          try {
+            const predictions = await model.estimateFaces({
+              input: video,
+              returnTensors: false,
+              flipHorizontal: false,
+              predictIrises: false
+            });
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            if (predictions.length > 0) {
+              predictions.forEach(prediction => {
+                if (prediction.scaledMesh) {
+                  drawFaceMesh(prediction.scaledMesh);
+                }
+              });
+              statusEl.textContent = `Detectado(s) ${predictions.length} rosto(s)`;
+            } else {
+              statusEl.textContent = 'Nenhum rosto detectado.';
+            }
+          } catch (err) {
+            console.error('Erro na detecção:', err);
+            statusEl.textContent = 'Erro na detecção: ' + err.message;
+          }
+          
+          requestAnimationFrame(detectFace);
+        }
+
+        detectFace();
+      } catch (err) {
+        console.error('Erro na inicialização:', err);
+        statusEl.textContent = 'Erro: ' + err.message;
+      }
+    }
+
+    // Iniciar a aplicação
+    main();
+  </script>
+
+</body>
+</html>

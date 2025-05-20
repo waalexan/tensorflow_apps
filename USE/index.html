@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Codificador de Sentenças - USE</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    textarea {
+      width: 100%;
+      height: 60px;
+      margin-bottom: 10px;
+    }
+    pre {
+      background: #f2f2f2;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Codificador de Sentenças</h1>
+
+  <p>Digite duas sentenças para comparar:</p>
+
+  <textarea id="sentence1" placeholder="Ex: Eu adoro programação."></textarea>
+  <textarea id="sentence2" placeholder="Ex: Programar é uma das minhas paixões."></textarea>
+
+  <button onclick="codificar()">Codificar e Calcular Similaridade</button>
+
+  <h3>Similaridade (cosseno):</h3>
+  <div id="similarity">---</div>
+
+  <h3>Vetores (embedding):</h3>
+  <pre id="output"></pre>
+
+  <script>
+    let model;
+
+    async function loadModel() {
+      document.getElementById('output').textContent = 'Carregando modelo...';
+      model = await use.load();
+      document.getElementById('output').textContent = 'Modelo carregado!';
+    }
+
+    async function codificar() {
+      const s1 = document.getElementById('sentence1').value;
+      const s2 = document.getElementById('sentence2').value;
+
+      if (!s1 || !s2) {
+        alert('Por favor, preencha as duas sentenças.');
+        return;
+      }
+
+      const embeddings = await model.embed([s1, s2]);
+      const vecs = await embeddings.array();
+
+      // Mostrar vetores
+      document.getElementById('output').textContent = 
+        `Sentença 1 (primeiros 5 valores): ${vecs[0].slice(0, 5).map(n => n.toFixed(4)).join(', ')}...\n\n` +
+        `Sentença 2 (primeiros 5 valores): ${vecs[1].slice(0, 5).map(n => n.toFixed(4)).join(', ')}...`;
+
+      // Calcular similaridade cosseno
+      const dotProduct = tf.losses.cosineDistance(vecs[0], vecs[1], 0).dataSync()[0];
+      const similarity = 1 - dotProduct;
+
+      document.getElementById('similarity').textContent = similarity.toFixed(4);
+    }
+
+    loadModel();
+  </script>
+
+</body>
+</html>

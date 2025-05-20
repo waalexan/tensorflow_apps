@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Classificação com MobileNet (TensorFlow.js)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    img {
+      max-width: 300px;
+      margin-top: 20px;
+    }
+    #results {
+      margin-top: 20px;
+    }
+    #results li {
+      text-align: left;
+      list-style: none;
+      padding: 4px;
+      background: #f0f0f0;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      width: 300px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Classificação de Imagem com MobileNet</h1>
+
+  <input type="file" id="imageUpload" accept="image/*" />
+  <div id="status">Carregando modelo...</div>
+  <img id="image" />
+  <ul id="results"></ul>
+
+  <!-- TensorFlow.js e MobileNet -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+  <script>
+    const imageElement = document.getElementById('image');
+    const imageUpload = document.getElementById('imageUpload');
+    const resultsList = document.getElementById('results');
+    const status = document.getElementById('status');
+
+    let model;
+
+    // Carregar modelo MobileNet
+    async function loadModel() {
+      model = await mobilenet.load();
+      status.textContent = 'Modelo carregado. Escolha uma imagem para classificar.';
+    }
+
+    // Quando o usuário seleciona uma imagem
+    imageUpload.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        imageElement.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+
+      imageElement.onload = async () => {
+        status.textContent = 'Classificando...';
+        const predictions = await model.classify(imageElement);
+        showResults(predictions);
+        status.textContent = 'Classificação concluída.';
+      };
+    });
+
+    // Exibe os resultados
+    function showResults(predictions) {
+      resultsList.innerHTML = '';
+      predictions.forEach(prediction => {
+        const li = document.createElement('li');
+        li.textContent = `${prediction.className} — ${(prediction.probability * 100).toFixed(2)}%`;
+        resultsList.appendChild(li);
+      });
+    }
+
+    loadModel();
+  </script>
+</body>
+</html>

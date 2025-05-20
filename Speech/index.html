@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Reconhecimento de Comando de Fala</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      text-align: center;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #status {
+      font-size: 18px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Reconhecimento de Comando de Fala</h1>
+  <p>Fale um dos seguintes comandos:</p>
+  <ul>
+    <li>yes, no, up, down, left, right, on, off, stop, go</li>
+  </ul>
+
+  <button onclick="startListening()">Iniciar Reconhecimento de Fala</button>
+
+  <div id="status"></div>
+
+  <!-- Importando TensorFlow.js e o modelo de comandos de fala -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands"></script>
+
+  <script>
+    let model;
+    let recognizer;
+
+    async function loadModel() {
+      // Carregando o modelo do TensorFlow.js
+      recognizer = await speechCommands.create('BROWSER_FFT');
+      await recognizer.ensureModelLoaded();
+      document.getElementById('status').textContent = "Modelo carregado. Clique no botão para começar.";
+    }
+
+    async function startListening() {
+      document.getElementById('status').textContent = "Escutando...";
+      
+      // Inicia a captura de áudio do microfone
+      recognizer.listen(result => {
+        const scores = result.scores;  // Probabilidades para cada classe
+        const classes = recognizer.wordLabels(); // Palavras possíveis
+        const maxIndex = scores.indexOf(Math.max(...scores)); // Índice da maior probabilidade
+        const command = classes[maxIndex]; // Comando reconhecido
+        
+        document.getElementById('status').textContent = `Comando reconhecido: ${command}`;
+      }, {
+        includeSpectrogram: true, // Usar espectrograma para análise
+        probabilityThreshold: 0.75, // Definir o limiar de confiança
+        overlapFactor: 0.5, // Overlap de 50% entre as amostras de áudio
+        invokeCallbackOnNoiseAndUnknown: true, // Incluir sons desconhecidos
+        invokeCallbackOnSilence: true // Incluir silêncio
+      });
+    }
+
+    // Carrega o modelo ao inicializar a página
+    loadModel();
+  </script>
+
+</body>
+</html>

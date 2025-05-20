@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Detecção de Toxicidade de Texto</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/toxicity"></script>
+</head>
+<body>
+  <h1>Verificador de Toxicidade</h1>
+  <textarea id="inputText" rows="4" cols="50" placeholder="Digite seu comentário aqui..."></textarea><br><br>
+  <button onclick="checkToxicity()">Verificar</button>
+  <div id="result"></div>
+
+  <script>
+    let model;
+
+    async function loadModel() {
+      model = await toxicity.load();
+    }
+
+    async function checkToxicity() {
+      const inputText = document.getElementById('inputText').value;
+      const predictions = await model.classify(inputText);
+
+      let resultHtml = '<h3>Resultados:</h3><ul>';
+      predictions.forEach(prediction => {
+        resultHtml += `<li><strong>${prediction.label}:</strong> ${prediction.results[0].match ? 'Tóxico' : 'Não tóxico'} (Probabilidade: ${(prediction.results[0].probabilities[1] * 100).toFixed(2)}%)</li>`;
+      });
+      resultHtml += '</ul>';
+
+      document.getElementById('result').innerHTML = resultHtml;
+    }
+
+    loadModel();
+  </script>
+</body>
+</html>
